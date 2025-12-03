@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WINDOWS - Interactive Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #cccccc;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        /* Page Container */
+        .page {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* Page 01 - Window Selection */
+        #page01 {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #2a2a2a;
+        }
+
+        .title {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            letter-spacing: 0.2rem;
+            text-transform: uppercase;
+            color: #888;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 4rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .window-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            max-width: 1200px;
+            width: 90%;
+        }
+
+        .window-slot {
+            aspect-ratio: 4/3;
+            border: 3px solid #555;
+            background: #333;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .window-slot::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px dashed #444;
+            margin: 10px;
+            opacity: 0.5;
+        }
+
+        .window-slot::after {
+            content: attr(data-label);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: #666;
+            pointer-events: none;
+        }
+
+        .window-slot:hover {
+            border-color: #888;
+            background: #3a3a3a;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .window-slot.pressing {
+            background: #4a4a4a;
+            border-color: #aaa;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+
+        .window-slot.darkened {
+            background: #1a1a1a;
+            border-color: #333;
+            opacity: 0.5;
+            transform: perspective(1000px) rotateY(5deg);
+        }
+
+        .window-slot.final-state {
+            background: #000;
+            border-color: #222;
+        }
+
+        /* Page 02 - Room Information */
+        #page02 {
+            flex-direction: column;
+            background: #2a2a2a;
+        }
+
+        .room-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .room-view {
+            width: 100%;
+            height: 100%;
+            border: 5px solid #555;
+            background: #333;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .room-label {
+            font-size: 3rem;
+            color: #555;
+            pointer-events: none;
+        }
+
+        /* Flickering light effect */
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+            75% { opacity: 0.9; }
+        }
+
+        .room-view.flickering {
+            animation: flicker 3s infinite;
+        }
+
+        /* Shadow movement */
+        .shadow {
+            position: absolute;
+            width: 100px;
+            height: 200px;
+            background: linear-gradient(90deg, transparent, rgba(0,0,0,0.5), transparent);
+            top: 50%;
+            left: -100px;
+            animation: shadowMove 8s infinite;
+        }
+
+        @keyframes shadowMove {
+            0% { left: -100px; }
+            50% { left: 100%; }
+            100% { left: -100px; }
+        }
+
+        /* Noise overlay */
+        .noise {
+            position: absolute;
+            inset: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="200" height="200" filter="url(%23noise)" opacity="0.05"/></svg>');
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Blurry figure */
+        .figure {
+            position: absolute;
+            width: 80px;
+            height: 160px;
+            background: radial-gradient(ellipse, rgba(50, 50, 50, 0.8), transparent);
+            filter: blur(15px);
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: all 2s ease;
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2rem;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: 2px solid #666;
+            background: #333;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+        }
+
+        .btn:hover {
+            border-color: #aaa;
+            background: #444;
+            color: #ccc;
+        }
+
+        /* Page 03 - Monitoring Reversal */
+        #page03 {
+            background: #000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .monitor-view {
+            width: 60%;
+            aspect-ratio: 4/3;
+            border: 3px solid #333;
+            background: #111;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .rec-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #ff0000;
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+
+        .rec-dot {
+            width: 12px;
+            height: 12px;
+            background: #ff0000;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .reveal-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            color: #666;
+            opacity: 0;
+            animation: fadeIn 3s forwards;
+            animation-delay: 2s;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .cursor-tracker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            transition: all 0.1s ease;
+        }
+
+        /* Final State - Figures watching */
+        .watching-figure {
+            position: absolute;
+            width: 60%;
+            height: 70%;
+            top: 15%;
+            left: 20%;
+            background: radial-gradient(ellipse at center, rgba(30, 30, 30, 0.9), transparent);
+            filter: blur(8px);
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        .watching-figure.visible {
+            opacity: 1;
+        }
+
+        /* Eyes */
+        .eyes {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        .eyes.visible {
+            opacity: 0.7;
+        }
+
+        .eye {
+            width: 15px;
+            height: 15px;
+            background: #666;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Page 01: Window Selection -->
+    <div id="page01" class="page active">
+        <h1 class="title">Select a window</h1>
+        <p class="subtitle">You think you are observing them</p>
+        <div class="window-grid">
+            <div class="window-slot" data-label="W-01" data-window="1"></div>
+            <div class="window-slot" data-label="W-02" data-window="2"></div>
+            <div class="window-slot" data-label="W-03" data-window="3"></div>
+            <div class="window-slot" data-label="W-04" data-window="4"></div>
+            <div class="window-slot" data-label="W-05" data-window="5"></div>
+            <div class="window-slot" data-label="W-06" data-window="6"></div>
+        </div>
+    </div>
+
+    <!-- Page 02: Room Information -->
+    <div id="page02" class="page">
+        <div class="room-container">
+            <div class="room-view flickering">
+                <div class="room-label">ROOM</div>
+                <div class="shadow"></div>
+                <div class="noise"></div>
+                <div class="figure"></div>
+            </div>
+            <div class="controls">
+                <button class="btn" id="backBtn">← Back</button>
+                <button class="btn" id="zoomBtn">Zoom In →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 03: Monitoring Reversal -->
+    <div id="page03" class="page">
+        <div class="monitor-view">
+            <div class="rec-indicator">
+                <div class="rec-dot"></div>
+                <span>REC ● Real-time</span>
+            </div>
+            <div class="reveal-text">They saw you.</div>
+            <div class="cursor-tracker"></div>
+            <div class="noise"></div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state = {
+            currentPage: 'page01',
+            selectedWindow: null,
+            visitCounts: {},
+            darkenedWindows: new Set(),
+            finalStateTriggered: false
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        function init() {
+            setupWindowInteractions();
+            setupRoomControls();
+            setupMonitoringPage();
+        }
+
+        // Page 01: Window Selection
+        function setupWindowInteractions() {
+            const windows = document.querySelectorAll('.window-slot');
+
+            windows.forEach(windowEl => {
+                let pressTimer = null;
+
+                // Long press detection
+                windowEl.addEventListener('mousedown', (e) => {
+                    windowEl.classList.add('pressing');
+                    pressTimer = setTimeout(() => {
+                        // Long press effect (already brightened by class)
+                    }, 300);
+                });
+
+                windowEl.addEventListener('mouseup', (e) => {
+                    clearTimeout(pressTimer);
+                    windowEl.classList.remove('pressing');
+                });
+
+                windowEl.addEventListener('mouseleave', (e) => {
+                    clearTimeout(pressTimer);
+                    windowEl.classList.remove('pressing');
+                });
+
+                // Click to open room
+                windowEl.addEventListener('click', () => {
+                    if (state.finalStateTriggered) return;
+
+                    const windowNum = windowEl.dataset.window;
+                    state.selectedWindow = windowNum;
+
+                    // Track visits
+                    state.visitCounts[windowNum] = (state.visitCounts[windowNum] || 0) + 1;
+
+                    openRoom(windowNum);
+                });
+            });
+        }
+
+        function openRoom(windowNum) {
+            switchPage('page02');
+
+            // Update room label
+            const roomLabel = document.querySelector('.room-label');
+            roomLabel.textContent = `ROOM ${windowNum}`;
+
+            // Position figure based on visit count
+            const visits = state.visitCounts[windowNum];
+            const figure = document.querySelector('.figure');
+
+            // Figure gets closer with each visit
+            const distances = ['20%', '30%', '40%', '50%', '60%', '70%'];
+            const sizes = ['80px', '100px', '120px', '140px', '160px', '180px'];
+            const blurs = ['15px', '12px', '10px', '8px', '6px', '4px'];
+
+            const index = Math.min(visits - 1, distances.length - 1);
+            figure.style.bottom = distances[index];
+            figure.style.width = sizes[index];
+            figure.style.height = sizes[index].replace('px', '') * 2 + 'px';
+            figure.style.filter = `blur(${blurs[index]})`;
+        }
+
+        // Page 02: Room Controls
+        function setupRoomControls() {
+            const backBtn = document.getElementById('backBtn');
+            const zoomBtn = document.getElementById('zoomBtn');
+
+            backBtn.addEventListener('click', () => {
+                // Darken and distort the selected window
+                const windowEl = document.querySelector(`[data-window="${state.selectedWindow}"]`);
+                windowEl.classList.add('darkened');
+                state.darkenedWindows.add(state.selectedWindow);
+
+                switchPage('page01');
+            });
+
+            zoomBtn.addEventListener('click', () => {
+                switchPage('page03');
+                startMonitoringSequence();
+            });
+        }
+
+        // Page 03: Monitoring Reversal
+        function setupMonitoringPage() {
+            const monitorView = document.querySelector('.monitor-view');
+            const tracker = document.querySelector('.cursor-tracker');
+
+            monitorView.addEventListener('mousemove', (e) => {
+                if (state.currentPage !== 'page03') return;
+
+                const rect = monitorView.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                tracker.style.left = x + 'px';
+                tracker.style.top = y + 'px';
+                tracker.style.opacity = '1';
+            });
+        }
+
+        function startMonitoringSequence() {
+            // After 6-10 seconds, trigger final state
+            const delay = 6000 + Math.random() * 4000; // 6-10 seconds
+
+            setTimeout(() => {
+                triggerFinalState();
+            }, delay);
+        }
+
+        function triggerFinalState() {
+            state.finalStateTriggered = true;
+            switchPage('page01');
+
+            // Transform all windows to show watching figures
+            const windows = document.querySelectorAll('.window-slot');
+
+            windows.forEach((windowEl, index) => {
+                setTimeout(() => {
+                    windowEl.classList.add('final-state');
+                    windowEl.innerHTML = `
+                        <div class="watching-figure visible"></div>
+                        <div class="eyes visible">
+                            <div class="eye"></div>
+                            <div class="eye"></div>
+                        </div>
+                    `;
+                }, index * 200); // Stagger the transformation
+            });
+
+            // Update text
+            const subtitle = document.querySelector('.subtitle');
+            subtitle.textContent = "They were watching you all along";
+        }
+
+        // Utility function to switch pages
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+            state.currentPage = pageId;
+        }
+    </script>
+</body>
+</html>
